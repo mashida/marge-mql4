@@ -284,4 +284,23 @@ void CHTF::Calc(const int RATES_TOTAL,const int PREV_CALCULATED)
   }
 
 
+//+------------------------------------------------------------------+
+//| Copy close prices of HTF bars to buffer                           |
+//+------------------------------------------------------------------+
+void CHTF::CopyCloseBuffer(int rates_total,double &buffer[])
+  {
+   ArrayResize(buffer,rates_total);
+   ArraySetAsSeries(buffer,true);
+
+   CBarStorage *cur=m_rates.GetNodeAtIndex(0);
+   for(int i=0;i<rates_total;i++)
+     {
+      datetime t=Time[i];
+      while(cur.Prev()!=NULL && t<cur.timeOpenReal)
+         cur=cur.Prev();
+      buffer[i]=cur.close;
+     }
+  }
+
+
 #endif // __HTF_MQH__
