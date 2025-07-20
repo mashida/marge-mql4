@@ -11,11 +11,10 @@
 
 ### `CHTF`
 Агрегатор, который собирает последовательность баров HTF. Основные методы:
-- `saveInputs(int dayStartHour, int periodMinutes)` – устанавливает начальный час дня и длительность одного HTF-бара в минутах.
+- `SaveInputs(int dayStartHour, int periodMinutes)` – устанавливает начальный час дня и длительность одного HTF-бара в минутах.
 - `OnInitCalc()` – очистка и первичная подготовка перед расчётом.
 - `Calc(int rates_total, int prev_calculated)` – вызывается из `OnCalculate` индикатора для обновления агрегированных баров.
-- `getCurrentBarTimeOpen()` – время открытия текущего собираемого бара.
-- `GetOHLC(datetime &time[], double &open[], double &high[], double &low[], double &close[])` – выгружает массивы сформированных баров.
+- `GetCurrentBarTimeOpen()` – время открытия текущего собираемого бара.
 
 ## Пример использования
 ```mq4
@@ -26,7 +25,7 @@ CHTF htf;
 int OnInit()
 {
     // Строим часовые бары из минутных
-    htf.saveInputs(0, 60);
+    htf.SaveInputs(0, 60);
     htf.OnInitCalc();
     return(INIT_SUCCEEDED);
 }
@@ -45,15 +44,10 @@ int OnCalculate(const int rates_total,
     // обновляем состояние агрегатора
     htf.Calc(rates_total, prev_calculated);
 
-    // получаем готовые данные HTF
-    datetime timeHTF[];
-    double openHTF[], highHTF[], lowHTF[], closeHTF[];
-    htf.GetOHLC(timeHTF, openHTF, highHTF, lowHTF, closeHTF);
-
-    // дальнейшая логика работы с timeHTF и ценами...
+    // дальнейшая логика работы с данными HTF...
 
     return(rates_total);
 }
 ```
 
-Функция `saveInputs` принимает желаемый час начала дня (например `0` для 00:00) и период HTF в минутах. После инициализации необходимо вызвать `OnInitCalc`, затем при каждом вызове `OnCalculate` вызывать `Calc` и, при необходимости, `GetOHLC` для получения массивов цен более высокого таймфрейма.
+Функция `SaveInputs` принимает желаемый час начала дня (например `0` для 00:00) и период HTF в минутах. После инициализации необходимо вызвать `OnInitCalc`, затем при каждом вызове `OnCalculate` вызывать `Calc` для обновления накопленных баров более высокого таймфрейма.

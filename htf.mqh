@@ -13,24 +13,48 @@
 class CBarStorage : public CObject
   {
 public:
-                     CBarStorage(void){}
-                    ~CBarStorage(void){}
+                     CBarStorage(void);
+                    ~CBarStorage(void);
 
-   datetime          timeOpen;
-   datetime          timeOpenReal;
-   datetime          timeHigh;
-   datetime          timeLow;
-   datetime          timeClose;
-   datetime          timeOpenNext;
-   double            open;
-   double            high;
-   double            low;
-   double            close;
+   datetime          timeOpen;      // время открытия бара
+   datetime          timeOpenReal;  // нормализованное время открытия
+   datetime          timeHigh;      // время максимума
+   datetime          timeLow;       // время минимума
+   datetime          timeClose;     // время закрытия
+   datetime          timeOpenNext;  // время начала следующего бара
+   double            open;          // цена открытия
+   double            high;          // максимум
+   double            low;           // минимум
+   double            close;         // цена закрытия
 
+//+------------------------------------------------------------------+
+//| Получить строковое представление бара                            |
+//+------------------------------------------------------------------+
    string            BarToString();
-   double            GetPrice(ENUM_APPLIED_PRICE price);
+
+//+------------------------------------------------------------------+
+//| Вернуть цену по типу (open, high, low, close и т.д.)             |
+//+------------------------------------------------------------------+
+  double            GetPrice(ENUM_APPLIED_PRICE price);
   };
 
+//+------------------------------------------------------------------+
+//| Конструктор                                                      |
+//+------------------------------------------------------------------+
+CBarStorage::CBarStorage(void)
+  {
+  }
+
+//+------------------------------------------------------------------+
+//| Деструктор                                                       |
+//+------------------------------------------------------------------+
+CBarStorage::~CBarStorage(void)
+  {
+  }
+
+//+------------------------------------------------------------------+
+//| Возвращает строковое описание бара                               |
+//+------------------------------------------------------------------+
 string CBarStorage::BarToString()
   {
    return StringConcatenate("OPEN_",DoubleToString(open,_Digits)," at ",timeOpen,
@@ -38,6 +62,9 @@ string CBarStorage::BarToString()
                            " timeOpenNext_",timeOpenNext);
   }
 
+//+------------------------------------------------------------------+
+//| Возвращает цену бара в зависимости от типа цены                  |
+//+------------------------------------------------------------------+
 double CBarStorage::GetPrice(ENUM_APPLIED_PRICE price)
   {
    double res = close;
@@ -56,158 +83,205 @@ double CBarStorage::GetPrice(ENUM_APPLIED_PRICE price)
 class CHTF
   {
 private:
-   int               dayStartHour;
-   int               periodInMinutes;
-   int               periodInSeconds;
-   CBarStorage       *curBar;
-   CBarStorage       *preBar;
-   CList             rates;
-   MqlDateTime       timeWeekStart;
-   datetime          curWeekStart;
+   int               m_dayStartHour;      // час начала торгового дня
+   int               m_periodMinutes;     // длительность HTF-бара в минутах
+   int               m_periodSeconds;     // длительность HTF-бара в секундах
+   CBarStorage       *m_currentBar;       // указатель на текущий бар
+   CBarStorage       *m_previousBar;      // указатель на предыдущий бар
+   CList             m_rates;             // список сформированных баров
+   MqlDateTime       m_timeWeekStart;     // вспомогательная структура времени
+   datetime          m_currentWeekStart;  // время начала текущей недели
 
 public:
-                     CHTF(void)
-     {
-      dayStartHour=0;
-      periodInMinutes=60;
-      periodInSeconds=periodInMinutes*60;
-      curBar=NULL;
-      preBar=NULL;
-     }
-                    ~CHTF(void){}
+                     CHTF(void);
+                    ~CHTF(void);
 
-   void              saveInputs(int _dayStartHour,int _periodMinutes)
-     {
-      dayStartHour   = _dayStartHour;
-      periodInMinutes= _periodMinutes;
-      periodInSeconds= periodInMinutes*60;
-     }
+//+------------------------------------------------------------------+
+//| Сохранить входные параметры агрегации                            |
+//+------------------------------------------------------------------+
+   void              SaveInputs(int dayStartHour,int periodMinutes);
 
-   void              OnInitCalc()
-     {
-      rates.Clear();
-      curBar = new CBarStorage;
-      BarToRates(*curBar);
-     }
+//+------------------------------------------------------------------+
+//| Очистить накопленные бары и создать стартовый бар                |
+//+------------------------------------------------------------------+
+   void              OnInitCalc();
 
+//+------------------------------------------------------------------+
+//| Основной расчёт агрегированных баров                             |
+//+------------------------------------------------------------------+
    void              Calc(const int rates_total,const int prev_calculated);
-   void              BarToRates(CBarStorage &bar)
-     {
-      rates.Insert(&bar,0);
-     }
-   datetime          TimeWeekStart(datetime TIME,MqlDateTime &start,int hour)
-     {
-      TimeToStruct(TIME,start);
-      start.hour=hour;
-      start.min=0;
-      start.sec=0;
-      return StructToTime(start) - start.day_of_week*86400;
-     }
-   void              NewBarSet(int i,CBarStorage &bar,int sec)
-     {
-      curWeekStart   = TimeWeekStart(Time[i],timeWeekStart,dayStartHour);
-      int nFullBars  = (int)(Time[i]-curWeekStart)/sec;
-      bar.timeOpenReal = curWeekStart + nFullBars*sec;
-      bar.timeOpen     = Time[i];
-      bar.open         = Open[i];
-      bar.timeOpenNext = (datetime)bar.timeOpenReal + sec;
-      bar.timeHigh     = bar.timeOpen;
-      bar.high         = High[i];
-      bar.timeLow      = bar.timeOpen;
-      bar.low          = Low[i];
-      bar.timeClose    = bar.timeOpen;
-      bar.close        = Close[i];
-     }
-   datetime          getCurrentBarTimeOpen()
-     {
-      CBarStorage *curNode=rates.GetNodeAtIndex(0);
-      return(curNode.timeOpen);
-     }
-   void              GetOHLC(datetime &time[],double &open[],double &high[],double &low[],double &close[]);
+
+//+------------------------------------------------------------------+
+//| Поместить бар в список сформированных баров                      |
+//+------------------------------------------------------------------+
+   void              BarToRates(CBarStorage &bar);
+
+//+------------------------------------------------------------------+
+//| Вычислить начало недели для заданного времени                    |
+//+------------------------------------------------------------------+
+   datetime          TimeWeekStart(datetime TIME,MqlDateTime &start,int hour);
+
+//+------------------------------------------------------------------+
+//| Заполнить структуру bar данными из i-го тика                     |
+//+------------------------------------------------------------------+
+   void              NewBarSet(int i,CBarStorage &bar,int sec);
+
+//+------------------------------------------------------------------+
+//| Время открытия текущего бара                                     |
+//+------------------------------------------------------------------+
+   datetime          GetCurrentBarTimeOpen();
+
   };
 
+//+------------------------------------------------------------------+
+//| Конструктор                                                      |
+//+------------------------------------------------------------------+
+CHTF::CHTF(void)
+  {
+   m_dayStartHour   = 0;
+   m_periodMinutes  = 60;
+   m_periodSeconds  = m_periodMinutes*60;
+   m_currentBar     = NULL;
+   m_previousBar    = NULL;
+  }
+
+//+------------------------------------------------------------------+
+//| Деструктор                                                       |
+//+------------------------------------------------------------------+
+CHTF::~CHTF(void)
+  {
+  }
+
+//+------------------------------------------------------------------+
+//| Сохранить входные параметры агрегации                            |
+//+------------------------------------------------------------------+
+void CHTF::SaveInputs(int dayStartHour,int periodMinutes)
+  {
+   m_dayStartHour   = dayStartHour;
+   m_periodMinutes  = periodMinutes;
+   m_periodSeconds  = m_periodMinutes*60;
+  }
+
+//+------------------------------------------------------------------+
+//| Очистить накопленные бары и создать стартовый бар                |
+//+------------------------------------------------------------------+
+void CHTF::OnInitCalc()
+  {
+   m_rates.Clear();
+   m_currentBar = new CBarStorage;
+   BarToRates(*m_currentBar);
+  }
+
+//+------------------------------------------------------------------+
+//| Поместить бар в список сформированных баров                      |
+//+------------------------------------------------------------------+
+void CHTF::BarToRates(CBarStorage &bar)
+  {
+   m_rates.Insert(&bar,0);
+  }
+
+//+------------------------------------------------------------------+
+//| Вычислить начало недели для заданного времени                    |
+//+------------------------------------------------------------------+
+datetime CHTF::TimeWeekStart(datetime TIME,MqlDateTime &start,int hour)
+  {
+   TimeToStruct(TIME,start);
+   start.hour=hour;
+   start.min=0;
+   start.sec=0;
+   return StructToTime(start) - start.day_of_week*86400;
+  }
+
+//+------------------------------------------------------------------+
+//| Заполнить структуру bar данными из i-го тика                     |
+//+------------------------------------------------------------------+
+void CHTF::NewBarSet(int i,CBarStorage &bar,int sec)
+  {
+   m_currentWeekStart = TimeWeekStart(Time[i],m_timeWeekStart,m_dayStartHour);
+   int nFullBars  = (int)(Time[i]-m_currentWeekStart)/sec;
+   bar.timeOpenReal = m_currentWeekStart + nFullBars*sec;
+   bar.timeOpen     = Time[i];
+   bar.open         = Open[i];
+   bar.timeOpenNext = (datetime)bar.timeOpenReal + sec;
+   bar.timeHigh     = bar.timeOpen;
+   bar.high         = High[i];
+   bar.timeLow      = bar.timeOpen;
+   bar.low          = Low[i];
+   bar.timeClose    = bar.timeOpen;
+   bar.close        = Close[i];
+  }
+
+//+------------------------------------------------------------------+
+//| Время открытия текущего бара                                     |
+//+------------------------------------------------------------------+
+datetime CHTF::GetCurrentBarTimeOpen()
+  {
+   CBarStorage *curNode=m_rates.GetNodeAtIndex(0);
+   return(curNode.timeOpen);
+  }
+
+//+------------------------------------------------------------------+
+//| Основной расчёт агрегированных баров                             |
+//+------------------------------------------------------------------+
 void CHTF::Calc(const int RATES_TOTAL,const int PREV_CALCULATED)
   {
    int nNewBars = RATES_TOTAL - PREV_CALCULATED;
    if(nNewBars==0)
      {
-      curBar.timeClose = Time[0];
-      curBar.close     = Close[0];
-      if(NormalizeDouble(High[0]-curBar.high,_Digits)>0)
+      m_currentBar.timeClose = Time[0];
+      m_currentBar.close     = Close[0];
+      if(NormalizeDouble(High[0]-m_currentBar.high,_Digits)>0)
         {
-         curBar.timeHigh = Time[0];
-         curBar.high     = High[0];
+         m_currentBar.timeHigh = Time[0];
+         m_currentBar.high     = High[0];
         }
-      if(NormalizeDouble(curBar.low-Low[0],_Digits)>0)
+      if(NormalizeDouble(m_currentBar.low-Low[0],_Digits)>0)
         {
-         curBar.timeLow = Time[0];
-         curBar.low     = Low[0];
+         m_currentBar.timeLow = Time[0];
+         m_currentBar.low     = Low[0];
         }
      }
    else if(nNewBars==1)
      {
-      if(Time[0]>=curBar.timeOpenNext)
+      if(Time[0]>=m_currentBar.timeOpenNext)
         {
-         preBar=curBar;
-         curBar = new CBarStorage;
-         curBar.Prev(preBar);
-         NewBarSet(0,*curBar,periodInSeconds);
-         BarToRates(*curBar);
+         m_previousBar=m_currentBar;
+         m_currentBar = new CBarStorage;
+         m_currentBar.Prev(m_previousBar);
+         NewBarSet(0,*m_currentBar,m_periodSeconds);
+         BarToRates(*m_currentBar);
         }
      }
    else if(nNewBars>1)
      {
-      rates.Clear();
-      curBar = new CBarStorage;
-      BarToRates(*curBar);
+      m_rates.Clear();
+      m_currentBar = new CBarStorage;
+      BarToRates(*m_currentBar);
       int i = RATES_TOTAL - 1;
-      NewBarSet(i,*curBar,periodInSeconds);
+      NewBarSet(i,*m_currentBar,m_periodSeconds);
       for(i--; i>=0; i--)
         {
-         if(Time[i]>=curBar.timeOpenNext)
+         if(Time[i]>=m_currentBar.timeOpenNext)
            {
-            curBar = new CBarStorage;
-            NewBarSet(i,*curBar,periodInSeconds);
-            BarToRates(*curBar);
+            m_currentBar = new CBarStorage;
+            NewBarSet(i,*m_currentBar,m_periodSeconds);
+            BarToRates(*m_currentBar);
            }
-         curBar.timeClose = Time[i];
-         curBar.close     = Close[i];
-         if(NormalizeDouble(High[i]-curBar.high,_Digits)>0)
+         m_currentBar.timeClose = Time[i];
+         m_currentBar.close     = Close[i];
+         if(NormalizeDouble(High[i]-m_currentBar.high,_Digits)>0)
            {
-            curBar.timeHigh = Time[i];
-            curBar.high     = High[i];
+            m_currentBar.timeHigh = Time[i];
+            m_currentBar.high     = High[i];
            }
-         if(NormalizeDouble(curBar.low-Low[i],_Digits)>0)
+         if(NormalizeDouble(m_currentBar.low-Low[i],_Digits)>0)
            {
-            curBar.timeLow = Time[i];
-            curBar.low     = Low[i];
+            m_currentBar.timeLow = Time[i];
+            m_currentBar.low     = Low[i];
            }
         }
      }
   }
 
-void CHTF::GetOHLC(datetime &time[],double &open[],double &high[],double &low[],double &close[])
-  {
-   int n = rates.Total();
-   ArrayResize(time,n);
-   ArrayResize(open,n);
-   ArrayResize(high,n);
-   ArrayResize(low,n);
-   ArrayResize(close,n);
-   ArraySetAsSeries(time,true);
-   ArraySetAsSeries(open,true);
-   ArraySetAsSeries(high,true);
-   ArraySetAsSeries(low,true);
-   ArraySetAsSeries(close,true);
-   for(int i=0;i<n;i++)
-     {
-      CBarStorage *b = rates.GetNodeAtIndex(i);
-      time[i]  = b.timeOpen;
-      open[i]  = b.open;
-      high[i]  = b.high;
-      low[i]   = b.low;
-      close[i] = b.close;
-     }
-  }
 
 #endif // __HTF_MQH__
