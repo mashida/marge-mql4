@@ -1,7 +1,7 @@
 //+------------------------------------------------------------------+
-//| Marge-02.mq4                                                     |
-//| Copyright 2025, Никита Сердитов                    |
-//| https://t.me/mashida                                             |
+//|                                                     Marge-02.mq4 |
+//|                                  Copyright 2025, Никита Сердитов |
+//|                                             https://t.me/mashida |
 //+------------------------------------------------------------------+
 #property strict
 #property indicator_separate_window

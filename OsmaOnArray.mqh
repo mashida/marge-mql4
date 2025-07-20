@@ -24,11 +24,11 @@ public:
    int  OnCalculate(const int rates_total,
                     const int prev_calculated,
                     const double &close[],
-                    double &osma[]);
+                    double &osma_buffer[]);
   };
 
 //+------------------------------------------------------------------+
-//| Инициализация                                       |
+//| Инициализация                                                    |
 //+------------------------------------------------------------------+
 void COsMAOnArray::Init(int fast,int slow,int signal)
   {
@@ -38,12 +38,12 @@ void COsMAOnArray::Init(int fast,int slow,int signal)
   }
 
 //+------------------------------------------------------------------+
-//| Основной расчёт OsMA                               |
+//| Основной расчёт OsMA                                             |
 //+------------------------------------------------------------------+
 int COsMAOnArray::OnCalculate(const int rates_total,
                               const int prev_calculated,
                               const double &close[],
-                              double &osma[])
+                              double &osma_buffer[])
   {
    int start = prev_calculated>0 ? prev_calculated-1 : 0;
 
@@ -81,13 +81,13 @@ int COsMAOnArray::OnCalculate(const int rates_total,
      {
       if(raw[i]==EMPTY_VALUE || i+m_signal>rates_total)
         {
-         osma[i]=EMPTY_VALUE;
+         osma_buffer[i]=EMPTY_VALUE;
          continue;
         }
       for(int j=0;j<m_signal;j++)
          arrSignal[j]=raw[i+j];
       double signal = iMAOnArray(arrSignal,m_signal,m_signal,0,MODE_SMA,0);
-      osma[i] = raw[i] - signal;
+      osma_buffer[i] = raw[i] - signal;
      }
    return(rates_total);
   }
